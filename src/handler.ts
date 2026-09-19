@@ -29,7 +29,14 @@ export function handle(method: string, rawUrl: string, entries: ChangelogEntry[]
       return { status: 400, body: { error: "`year` must be a four-digit year, e.g. 2026." } };
     }
     const year = yearParam === null ? undefined : Number(yearParam);
-    const items = listEntries(entries, { year });
+
+    const breakingParam = url.searchParams.get("breaking");
+    if (breakingParam !== null && breakingParam !== "true") {
+      return { status: 400, body: { error: "`breaking` must be the exact string \"true\" when provided." } };
+    }
+    const breaking = breakingParam === "true" ? true : undefined;
+
+    const items = listEntries(entries, { year, breaking });
     return { status: 200, body: { entries: items, count: items.length } };
   }
 

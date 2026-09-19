@@ -1,0 +1,548 @@
+{
+  "acceptance_criteria": [
+    {
+      "given": "a changelog entry with `breaking: true` in `data/changelog.json`",
+      "id": "AC1",
+      "then": "a visible `Breaking` pill appears next to that entry's title, styled in the amber warning colour and distinct from the muted date and reading-time text",
+      "when": "the /changelog page is rendered"
+    },
+    {
+      "given": "a changelog entry with `breaking: true`",
+      "id": "AC2",
+      "then": "it announces the text `Breaking change:` before it announces the entry title text",
+      "when": "a screen reader reaches that entry on the /changelog page"
+    },
+    {
+      "given": "a changelog entry where `breaking` is absent or `false`",
+      "id": "AC3",
+      "then": "no `Breaking` pill and no `Breaking change:` text appears on that entry",
+      "when": "the /changelog page is rendered"
+    },
+    {
+      "given": "a changelog entry with `breaking: true`",
+      "id": "AC4",
+      "then": "the corresponding `<item>` contains a `<title>` whose text starts with the literal `[Breaking] ` (open bracket, `Breaking`, close bracket, single space) followed by the entry title",
+      "when": "a client requests `/changelog.xml`"
+    },
+    {
+      "given": "a changelog entry with `breaking: true`",
+      "id": "AC5",
+      "then": "the corresponding `<item>` contains a `<category>breaking</category>` element",
+      "when": "a client requests `/changelog.xml`"
+    },
+    {
+      "given": "a changelog entry where `breaking` is absent or `false`",
+      "id": "AC6",
+      "then": "the corresponding `<item>` `<title>` has no `[Breaking] ` prefix and the `<item>` contains no `<category>breaking</category>` element",
+      "when": "a client requests `/changelog.xml`"
+    },
+    {
+      "given": "the changelog API is serving from its `data/changelog.json`",
+      "id": "AC7",
+      "then": "every entry in the response body has a `breaking` field of type boolean, with `false` for entries whose source data omits the field and `true` for entries whose source has `\"breaking\": true`",
+      "when": "a client requests the changelog list with no query parameters"
+    },
+    {
+      "given": "the changelog API is serving a data file containing both breaking and non-breaking entries",
+      "id": "AC8",
+      "then": "the response contains only entries whose `breaking` is `true`, every returned entry has `breaking: true`, and the count matches the number of breaking entries in the source data",
+      "when": "a client requests the changelog list with `?breaking=true`"
+    },
+    {
+      "given": "the changelog API is running",
+      "id": "AC9",
+      "then": "the system responds `400 Bad Request`",
+      "when": "a client requests the changelog list with the query parameter `breaking` set to any value other than the exact string `true` (for example `false`, `1`, `yes`, an empty string, or a repeated occurrence)"
+    },
+    {
+      "given": "the four existing entries in `pixie-sandbox-site/data/changelog.json` and the entries in `sandbox-changelog-api/data/changelog.json` at the start of this work",
+      "id": "AC10",
+      "then": "none of those existing entries have been modified \u2014 their `title`, `description`, and `date` fields are byte-identical and no `breaking` field has been added to them",
+      "when": "the change is merged"
+    },
+    {
+      "given": "the changelog API is serving a data file where no entry has `breaking: true`",
+      "id": "AC11",
+      "then": "the system responds `200 OK` with an empty list, not `404`",
+      "when": "a client requests the changelog list with `?breaking=true`"
+    },
+    {
+      "given": "two or more changelog entries with `breaking: true` present on the /changelog page",
+      "id": "AC12",
+      "then": "each such entry has its own Breaking pill with its own `Breaking change:` accessible text; a single shared marker at the top of the page does not satisfy this",
+      "when": "the page is rendered"
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "covers": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC12"
+      ],
+      "entry_points": [
+        "@/components/changelog/ChangelogEntry"
+      ],
+      "path": "pixie-sandbox-site/__tests__/changelog/ChangelogEntry.breaking.test.tsx",
+      "source": "/** @jest-environment jsdom */\nimport { render, screen, within } from '@testing-library/react';\nimport '@testing-library/jest-dom';\nimport ChangelogEntry from '@/components/changelog/ChangelogEntry';\n\nconst base = {\n  title: 'Widget renamed to gadget',\n  description: 'The widget resource has been renamed to gadget in the public API.',\n  date: '2026-09-01',\n};\n\ndescribe('ChangelogEntry \u2014 breaking marker', () => {\n  it('shows a Breaking marker when breaking is true (AC1)', () => {\n    render(<ChangelogEntry entry={{ ...base, breaking: true }} />);\n    const article = screen.getByRole('article');\n    expect(within(article).getByText(/breaking change:/i)).toBeInTheDocument();\n  });\n\n  it('shows no Breaking marker when breaking is absent (AC3)', () => {\n    render(<ChangelogEntry entry={{ ...base }} />);\n    expect(screen.queryByText(/breaking change:/i)).not.toBeInTheDocument();\n  });\n\n  it('shows no Breaking marker when breaking is false (AC3)', () => {\n    render(<ChangelogEntry entry={{ ...base, breaking: false }} />);\n    expect(screen.queryByText(/breaking change:/i)).not.toBeInTheDocument();\n  });\n\n  it('places \"Breaking change:\" before the title in reading order (AC2)', () => {\n    render(<ChangelogEntry entry={{ ...base, title: 'Widget renamed to gadget', breaking: true }} />);\n    const article = screen.getByRole('article');\n    const text = article.textContent ?? '';\n    const breakingAt = text.toLowerCase().indexOf('breaking change:');\n    const titleAt = text.indexOf('Widget renamed to gadget');\n    expect(breakingAt).toBeGreaterThanOrEqual(0);\n    expect(titleAt).toBeGreaterThan(breakingAt);\n  });\n\n  it('renders a distinct Breaking marker on each breaking entry when several are shown (AC12)', () => {\n    render(\n      <>\n        <ChangelogEntry entry={{ ...base, title: 'First breaking', breaking: true }} />\n        <ChangelogEntry entry={{ ...base, title: 'Second breaking', breaking: true }} />\n      </>\n    );\n    expect(screen.getAllByRole('article')).toHaveLength(2);\n    expect(screen.getAllByText(/breaking change:/i)).toHaveLength(2);\n  });\n});"
+    },
+    {
+      "covers": [
+        "AC4",
+        "AC5",
+        "AC6"
+      ],
+      "entry_points": [
+        "@/app/changelog.xml/route"
+      ],
+      "path": "pixie-sandbox-site/__tests__/changelog-xml-route.breaking.test.ts",
+      "source": "/** @jest-environment node */\nimport { GET } from '@/app/changelog.xml/route';\n\njest.mock('@/data/changelog.json', () => [\n  { title: 'Widget renamed', description: 'The widget API is now the gadget API.', date: '2026-09-02', breaking: true },\n  { title: 'Copy tweak', description: 'Refined the wording on the pricing table.', date: '2026-09-01' }\n]);\n\ndescribe('/changelog.xml \u2014 breaking entries', () => {\n  it('prefixes the RSS <title> with [Breaking] for a breaking entry (AC4)', async () => {\n    const res = await GET();\n    const body = await res.text();\n    expect(body).toMatch(/<title>\\[Breaking\\] Widget renamed<\\/title>/);\n  });\n\n  it('emits <category>breaking</category> inside the item for a breaking entry (AC5)', async () => {\n    const res = await GET();\n    const body = await res.text();\n    const match = body.match(/<item>[\\s\\S]*?<title>\\[Breaking\\] Widget renamed[\\s\\S]*?<\\/item>/);\n    expect(match).not.toBeNull();\n    expect(match![0]).toMatch(/<category>breaking<\\/category>/);\n  });\n\n  it('does not prefix or categorise a non-breaking entry (AC6)', async () => {\n    const res = await GET();\n    const body = await res.text();\n    const match = body.match(/<item>[\\s\\S]*?<title>Copy tweak[\\s\\S]*?<\\/item>/);\n    expect(match).not.toBeNull();\n    expect(match![0]).not.toMatch(/\\[Breaking\\]/);\n    expect(match![0]).not.toMatch(/<category>breaking<\\/category>/);\n  });\n});"
+    }
+  ],
+  "api": [
+    {
+      "auth": "none",
+      "method": "GET",
+      "path": "/ (the changelog list endpoint served by handle() in sandbox-changelog-api)",
+      "request_summary": "Optional query parameter `breaking`. Only `breaking=true` is accepted; any other value \u2192 400. Absence returns all entries.",
+      "response_summary": "200 with the existing changelog list envelope. Every entry now carries `breaking: boolean` (`false` where the source data omits the field, `true` where the source has `\"breaking\": true`). With `?breaking=true`, only entries where `breaking === true` are returned; if none exist, response is 200 with an empty list."
+    },
+    {
+      "auth": "none",
+      "method": "GET",
+      "path": "/changelog.xml (on pixie-sandbox-site)",
+      "request_summary": "No query parameters.",
+      "response_summary": "RSS 2.0 XML unchanged in structure. For each `<item>` whose entry is breaking: `<title>` text is prefixed with `[Breaking] ` and the `<item>` contains an additional `<category>breaking</category>` element. Non-breaking items are unchanged."
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption": "The pill uses an amber-family palette (Tailwind `bg-amber-100 text-amber-900` in light, `dark:bg-amber-900/40 dark:text-amber-200` or similar in dark) \u2014 a warning colour distinct from the existing `text-zinc-500 dark:text-zinc-400` muted styling on the reading-time and date. Engineer picks the exact classes.",
+      "confidence": "medium"
+    },
+    {
+      "assumption": "The pill sits inline in the entry header, positioned before the h2 title text in DOM order, so both the visual reading order and the screen-reader reading order announce `Breaking change:` first.",
+      "confidence": "high"
+    },
+    {
+      "assumption": "In `pixie-sandbox/sandbox-changelog-api`, the request-handling entry point is exported from `src/server.ts` (or a sibling in `src/`) as a `handle()` function per the repository's CLAUDE.md. Two other source files exist in `src/` but their names are not visible in the brief.",
+      "confidence": "medium"
+    },
+    {
+      "assumption": "The API's list response shape is unchanged apart from every entry now carrying `breaking: boolean`. The envelope (bare array vs `{ entries: [...] }`) is not visible in the brief and the engineer preserves whatever shape exists today.",
+      "confidence": "medium"
+    },
+    {
+      "assumption": "The RSS `<description>` is not prefixed \u2014 only the `<title>` carries `[Breaking] `. The user confirmed the prefix on the title; adding it to the description too would double-announce.",
+      "confidence": "high"
+    }
+  ],
+  "breakouts": [
+    {
+      "items": [
+        "Add `breaking?: boolean` to `ChangelogEntryData` in `components/changelog/ChangelogEntry.tsx`",
+        "Add `breaking?: boolean` to the local `ChangelogEntry` type in `app/changelog.xml/route.ts`",
+        "Leave both `data/changelog.json` files' existing entries untouched"
+      ],
+      "size": "small",
+      "title": "Extend the shared entry shape"
+    },
+    {
+      "items": [
+        "Add a `Breaking` pill in the entry header, in an amber warning colour meeting WCAG AA in both themes",
+        "Include `Breaking change:` as accessible text in DOM order before the h2 title",
+        "Do not render anything for entries where `breaking` is absent or false"
+      ],
+      "size": "small",
+      "title": "Render the Breaking pill on the site"
+    },
+    {
+      "items": [
+        "Prefix `<title>` with `[Breaking] ` for marked entries (applied after XML escaping)",
+        "Emit `<category>breaking</category>` inside the `<item>` for marked entries",
+        "Leave non-breaking items unchanged"
+      ],
+      "size": "small",
+      "title": "Mark breaking entries in the RSS feed"
+    },
+    {
+      "items": [
+        "Normalise every response entry's `breaking` to a boolean (`false` when source omits)",
+        "Accept `?breaking=true` and filter to breaking entries only",
+        "Return 400 for any other value of the `breaking` query parameter",
+        "Return 200 with an empty list when `?breaking=true` matches no entries",
+        "Add `node:test`-based tests exercising `handle()` directly"
+      ],
+      "size": "medium",
+      "title": "Serve the flag and the filter from the API"
+    }
+  ],
+  "clarified_description": "A `breaking` boolean flag is added to the shared changelog entry shape used by both `pixie-sandbox/pixie-sandbox-site` and `pixie-sandbox/sandbox-changelog-api`, meaning the same thing in each repository. In the data files the field is optional and omitted when false, so the four existing entries in each repository need no change and continue to render as non-breaking. On the site, a marked entry renders a small `Breaking` pill next to its title on the changelog page, styled in an amber warning colour that stands out from the muted date and reading-time styling, and carrying the accessible text `Breaking change:` in DOM order before the entry heading so a screen reader announces it before the title. In the RSS feed at `/changelog.xml`, each marked entry's `<title>` is prefixed with `[Breaking] ` and its `<item>` gains a `<category>breaking</category>` element; non-breaking entries are unchanged. The changelog API returns `breaking: boolean` on every entry (defaulted to `false` where the source omits the field, so consumers see a consistent shape), accepts `?breaking=true` to return only breaking entries, and responds `400 Bad Request` if the `breaking` query parameter is present with any other value.",
+  "component_diagram": {
+    "kind": "flowchart",
+    "source": "graph TD\n  A[site data/changelog.json] --> B[ChangelogEntry component]\n  A --> C[changelog.xml route]\n  D[api data/changelog.json] --> E[handle in sandbox-changelog-api]\n  B --> F[Breaking pill next to title]\n  C --> G[Title prefix and category element in RSS item]\n  E --> H[breaking boolean on every entry in response]\n  E --> I[Filter breaking=true, 400 on other values]",
+    "title": "How the breaking flag flows across both repositories"
+  },
+  "constraints": [
+    {
+      "detail": "The `breaking` field must have identical semantics in `pixie-sandbox/pixie-sandbox-site` and `pixie-sandbox/sandbox-changelog-api`: same field name, boolean type, `false` when omitted from source, no coercion of other truthy/falsy values. There is no shared types package or runtime enforcement \u2014 parity is by convention across the two PRs.",
+      "kind": "integration"
+    },
+    {
+      "detail": "The API change is additive and backward compatible: existing consumers see the same response with one extra optional-shaped field they can ignore, and the `?breaking=true` filter is opt-in. No version bump, no deprecation window.",
+      "kind": "integration"
+    },
+    {
+      "detail": "The API must reject any `breaking` query value other than the literal string `true` with `400`, not silently coerce (e.g. treat `1`, `yes`, or an empty value as true). This keeps the parameter's meaning single-valued and avoids consumers relying on undocumented coercion.",
+      "kind": "security"
+    },
+    {
+      "detail": "The Breaking pill must be accessible: the accessible text `Breaking change:` must be in the DOM in reading order before the entry heading (not injected via CSS `content`, not `aria-hidden`, not placed after the title with `aria-label` reordering).",
+      "kind": "other"
+    },
+    {
+      "detail": "RSS 2.0 has no standard element for breaking-change markers. This spec chooses `<category>breaking</category>` (a standard RSS element with a fixed literal value) plus a `[Breaking] ` prefix on `<title>`, so a feed reader sees the marker in the visible title even if it ignores `<category>`.",
+      "kind": "other"
+    }
+  ],
+  "contracts": [
+    {
+      "definition": "GET on the changelog list endpoint served by `handle()` in `sandbox-changelog-api`. Response entries gain a new required field `breaking: boolean` (always present, `false` where source omits it). Query parameters: `breaking` is optional; when present, its only accepted value is the exact string `true`, which filters the response to entries with `breaking === true`. Any other value \u2192 HTTP 400. Absence of the parameter \u2192 response contains all entries. The response envelope (array or object wrapper) is otherwise unchanged.",
+      "kind": "api"
+    },
+    {
+      "definition": "GET `/changelog.xml` on `pixie-sandbox-site`. RSS 2.0 output structure unchanged except: for each `<item>` whose underlying entry has `breaking === true`, the `<title>` text is prefixed with `[Breaking] ` (bracketed literal, single trailing space, applied after XML escaping) and the `<item>` contains an additional `<category>breaking</category>` child element.",
+      "kind": "api"
+    }
+  ],
+  "contributions_applied": [
+    {
+      "applied": true,
+      "contribution": "Someone is already calling this \u2014 interface change compatibility",
+      "criteria": [
+        "AC7",
+        "AC8",
+        "AC9",
+        "AC10"
+      ],
+      "why_not": null
+    }
+  ],
+  "data_changes": [
+    {
+      "change": "Add optional field `breaking?: boolean`. Absence means not breaking. Existing entries in both `data/changelog.json` files are unchanged and continue to render as non-breaking.",
+      "entity": "ChangelogEntry (shared shape used by both repositories)",
+      "migration_needed": false
+    }
+  ],
+  "data_model": [],
+  "deferred_decisions": [
+    "Whether to consolidate the duplicated `ChangelogEntryData` (site component) and the local `ChangelogEntry` type (RSS route) into a shared module \u2014 leaving them as two matching declarations is acceptable. Deferred because consolidation is a refactor unrelated to this feature's requirements.",
+    "The exact Tailwind class palette for the pill within the amber family \u2014 the constraint is warning colour, WCAG 2.1 AA in both themes, and visual distinctness from the muted date/reading-time styling. Deferred because the class choice is a small implementation detail the engineer resolves against the existing palette.",
+    "Which file among `sandbox-changelog-api/src/`'s three files hosts `handle()` and the query-string parsing \u2014 deferred because the analyst brief did not surface those filenames; the engineer picks the file that today parses the URL and returns JSON and lands the `breaking` normalisation and filter there.",
+    "Whether the extra tests for AC1/AC2/AC3/AC12 go in a new describe block inside the existing `__tests__/changelog/ChangelogEntry.test.tsx` or in a sibling file \u2014 deferred because the test-file layout convention here allows either, and the engineer picks based on file size."
+  ],
+  "feature_id": "398b1fcc-55b0-4755-8ef8-502aa628c264",
+  "flows": [
+    {
+      "kind": "flowchart",
+      "source": "graph TD\n  A[GET request to changelog API] --> B{breaking query param?}\n  B -->|absent| C[Return all entries with breaking on each]\n  B -->|breaking=true| D[Return only entries where breaking is true]\n  B -->|any other value| E[HTTP 400 Bad Request]\n  D --> F{any breaking entries?}\n  F -->|yes| G[200 with filtered list]\n  F -->|no| H[200 with empty list]",
+      "title": "API request handling for the breaking filter"
+    }
+  ],
+  "must": [
+    "The system shall carry a `breaking` boolean on each changelog entry with the same meaning in the site and in the API.",
+    "The system shall treat a source-data entry without a `breaking` field as `breaking: false`, so the four existing entries in each repository remain non-breaking without modification.",
+    "WHERE a changelog entry has `breaking: true`, the site shall render a visible `Breaking` pill next to the entry title on the changelog page.",
+    "WHERE a changelog entry has `breaking: true`, the site shall place the accessible text `Breaking change:` in DOM order before the entry title so a screen reader announces it before the title.",
+    "WHERE the Breaking pill is shown, the system shall meet WCAG 2.1 AA contrast in both light and dark themes.",
+    "WHERE a changelog entry has `breaking: true`, the RSS feed shall prefix the corresponding `<item>` `<title>` with the literal `[Breaking] ` (bracketed word, single trailing space) and shall emit a `<category>breaking</category>` element inside that `<item>`.",
+    "WHERE a changelog entry does not have `breaking: true`, the RSS feed shall render its `<item>` with no `[Breaking] ` prefix and no `<category>breaking</category>` element.",
+    "The changelog API shall return `breaking` as a boolean on every entry in every list response, using `false` for entries whose source data omits the field.",
+    "WHEN a client calls the changelog API with `?breaking=true`, the system shall return only entries whose `breaking` is `true`.",
+    "IF the changelog API receives the query parameter `breaking` with any value other than the exact string `true`, THEN the system shall respond `400 Bad Request`.",
+    "WHEN a client calls the changelog API with `?breaking=true` and no entries are marked breaking, the system shall respond `200 OK` with an empty list."
+  ],
+  "open_questions": [
+    "AC7, AC8, AC9, AC11 are left uncovered by `acceptance_tests` under UMC-01. The `sandbox-changelog-api` repository's exact source paths (which file exports `handle()`, which file parses the query string) are not visible in the brief. The engineer picks the entry point when writing `test/breaking.test.ts` using `node:test` and `node:assert/strict` per the repo's CLAUDE.md, testing `handle()` directly rather than opening a socket.",
+    "AC10 (`existing entries unchanged`) is a diff-review criterion, not a unit test \u2014 the reviewer verifies by inspecting the diff on both `data/changelog.json` files."
+  ],
+  "outcome": "A changelog entry can be marked as breaking, and that marking travels consistently to the changelog page (a pill next to the title, announced to screen readers as `Breaking change:` before the title), the RSS feed (a `[Breaking] ` title prefix and a `<category>breaking</category>` element), and the changelog API (a `breaking` boolean on every entry, filterable with `?breaking=true`).",
+  "rationale": "**Shape over surface.** The feature description asks for one flag that means the same thing in two places. That's the load-bearing decision \u2014 everything else is how each surface expresses it. `breaking: boolean`, optional in source, always-present in API response, `false` when the source is silent.\n\n**Optional in source, boolean in API.** The two forms serve different readers. Existing source entries stay byte-identical so the current PRs of that JSON don't churn; the API projects every entry through a `breaking: entry.breaking === true` normalisation so consumers get one shape and don't have to encode `undefined === false` themselves.\n\n**RSS: title prefix AND category.** RSS 2.0 has no dedicated `<breaking>` element and this spec deliberately avoids a custom namespace. `<category>breaking</category>` is a standard element with a well-defined slot, and the `[Breaking] ` title prefix is what a human reading a feed reader will actually see. Both are cheap; together they cover clients that render `<category>` and clients that don't.\n\n**Site: pill in DOM order, not aria trickery.** The `Breaking change:` accessible text sits in the DOM before the h2, so both sighted reading order and screen-reader reading order announce it first. This avoids the fragile pattern of `aria-label` reordering an element that follows the title visually.\n\n**API: strict query parsing.** `?breaking=true` returns breaking-only; anything else 400s. The alternative (accept `false`/`1`/`yes` as coerced values) would silently expand the parameter's meaning and lock in coercion consumers might rely on. Strict is easy to relax later; loose is not easy to tighten.\n\n**Backward compatibility.** The API change is additive: a new optional-shaped field on each entry and a new query parameter. Existing consumers ignoring the field see identical behaviour; existing consumers passing no `breaking` query see identical results. No flag, no version, no deprecation window.\n\n**Duplicate type in the site.** The site declares `ChangelogEntryData` in `components/changelog/ChangelogEntry.tsx` and redeclares it locally in `app/changelog.xml/route.ts`. Both must gain `breaking?: boolean`. Consolidating them into a shared module is out of scope \u2014 the engineer may do it but is not required to.",
+  "risks": [
+    {
+      "mitigation": "Both PRs land the same field name (`breaking`), the same type (`boolean`), the same default (`false` when source omits), and the same acceptance tests for their respective surfaces. Reviewer explicitly checks both PRs together and refuses either alone.",
+      "reference": null,
+      "severity": "medium",
+      "title": "Field-meaning drift between the two repositories"
+    },
+    {
+      "mitigation": "Acceptance tests exercise both the component (AC1\u2013AC3, AC12) and the RSS route (AC4\u2013AC6) independently, so updating only one type surfaces immediately in CI.",
+      "reference": null,
+      "severity": "medium",
+      "title": "Site's duplicate type declaration \u2014 pill correct on page, RSS unchanged (or vice versa)"
+    },
+    {
+      "mitigation": "AC9 covers this explicitly: any value of `breaking` other than the literal string `true` is 400. Test the boundary cases (`false`, `1`, `yes`, empty string, repeated occurrence).",
+      "reference": null,
+      "severity": "medium",
+      "title": "Loose query-parameter parsing on the API silently accepting `1`, `yes`, or empty as `true`"
+    },
+    {
+      "mitigation": "`swe_constraints` requires the `Breaking change:` text to be real DOM text before the h2 in reading order. AC2's test asserts the string appears in `textContent` and precedes the title.",
+      "reference": null,
+      "severity": "medium",
+      "title": "Accessible text implemented via CSS `content` or `aria-hidden`, so screen readers do not announce it"
+    },
+    {
+      "mitigation": "`swe_constraints` calls out that the prefix is inserted after XML escaping. The RSS route already has `escapeXml`; the engineer applies it before concatenation.",
+      "reference": null,
+      "severity": "low",
+      "title": "XML escaping bug when a breaking entry's title contains special characters \u2014 `[Breaking] &lt;foo&gt;` vs a broken raw `<`"
+    }
+  ],
+  "rollout": {
+    "flags": [],
+    "metrics": [
+      "RSS feed request success rate (share of 200 responses on /changelog.xml) \u2014 unchanged after release",
+      "Changelog API 400 rate \u2014 new baseline: 400s only where `breaking` query is present with a non-`true` value",
+      "Changelog API total request count \u2014 unchanged for existing consumers who do not use `?breaking=true`",
+      "Number of entries with `breaking: true` in production data (starts at 0; grows as content is authored)"
+    ],
+    "stages": [
+      "Development",
+      "UAT",
+      "Production canary",
+      "Full release"
+    ]
+  },
+  "schema_version": 7,
+  "should": [],
+  "standards_applied": [
+    {
+      "applies": false,
+      "criteria": [],
+      "standard": "ANZ Digital \u2014 Date & Time Display Standard (DTS-04)",
+      "why_not": "This change adds a boolean flag and a text marker; it does not add or modify any date or time display. The existing DD MMM YYYY rendering of `entry.date` on the page and `<pubDate>` in the RSS feed are unchanged."
+    },
+    {
+      "applies": false,
+      "criteria": [],
+      "standard": "ANZ Engineering \u2014 Database Write Result Standard (DWR-01)",
+      "why_not": "Neither the site nor the API writes to a database. Both read from a static `data/changelog.json`; this feature only reads."
+    },
+    {
+      "applies": true,
+      "criteria": [
+        "AC1",
+        "AC3",
+        "AC4",
+        "AC5",
+        "AC6",
+        "AC12"
+      ],
+      "standard": "ANZ Engineering \u2014 Discriminating Test Inputs Standard (DTI-01)",
+      "why_not": null
+    },
+    {
+      "applies": true,
+      "criteria": [
+        "AC7",
+        "AC8",
+        "AC9",
+        "AC10",
+        "AC11"
+      ],
+      "standard": "ANZ Engineering \u2014 Unmet Criteria Standard (UMC-01)",
+      "why_not": null
+    },
+    {
+      "applies": false,
+      "criteria": [],
+      "standard": "Payments Content Policy (PCP-02) \u2014 customer-facing copy",
+      "why_not": "The only customer-facing string this change adds is `Breaking change:` (a UX label), and the RSS prefix `[Breaking] ` \u2014 neither has the shape of an internal work-tracking reference (project key, hyphen, number). Descriptions still come from source data and this change does not display any reference key."
+    }
+  ],
+  "swe_constraints": [
+    "Add `breaking?: boolean` (optional, boolean) to the exported `ChangelogEntryData` in `components/changelog/ChangelogEntry.tsx`. Do not change `title`, `description`, or `date`.",
+    "Add `breaking?: boolean` to the local `ChangelogEntry` type in `app/changelog.xml/route.ts` \u2014 it does not import from the component; both must be updated independently.",
+    "Do not modify any of the existing four entries in `pixie-sandbox-site/data/changelog.json` or the existing entries in `sandbox-changelog-api/data/changelog.json`. Their bytes are unchanged.",
+    "Pill styling uses Tailwind utility classes only, following the existing pattern (inline classes with `dark:` variants; no CSS files). Match the WCAG 2.1 AA contrast requirement in both themes.",
+    "The `Breaking change:` accessible text must appear in the DOM inside the entry's `<article>` before the `<h2>` title heading \u2014 not injected via CSS `content`, not `aria-hidden`, not reordered by `aria-label` on a later element.",
+    "The RSS `<category>` element sits inside each `<item>` where `breaking === true`, alongside `<title>` / `<description>` / `<pubDate>`. The `[Breaking] ` prefix is the literal string open-bracket, `Breaking`, close-bracket, single space \u2014 applied to `<title>` only, not `<description>`.",
+    "In `sandbox-changelog-api`, every entry in every list response carries `breaking: boolean` \u2014 normalise on the way out: `breaking: entry.breaking === true`. Do not use truthy coercion; explicit strict equality to `true` avoids treating `1`, `\"true\"`, or other values as breaking if source data drifts.",
+    "The API's `breaking` query parameter is compared to the exact string `\"true\"`; any other value (including `\"false\"`, `\"1\"`, empty string, repeated parameter) responds `400 Bad Request`. Absence of the parameter is not an error \u2014 it returns all entries.",
+    "`sandbox-changelog-api` is Node 24+ with TypeScript type stripping. Use only erasable syntax (no `enum`, no `namespace`, no parameter properties). Import local files with the `.ts` extension. Do not add dependencies.",
+    "Tests in `sandbox-changelog-api` go under `test/*.test.ts` using `node:test` and `node:assert/strict`. Test the `handle()` function directly. Do not open a socket in a test.",
+    "This Next.js version has documented breaking changes from typical training-data conventions (`AGENTS.md`). Before writing Next.js-specific code (route handlers, response construction), read the relevant guide under `node_modules/next/dist/docs/`.",
+    "The RSS output must remain well-formed XML: the `[Breaking] ` prefix is inserted after XML-escaping the underlying title text (so an entry titled `<script>` produces `[Breaking] &lt;script&gt;`, not a broken prefix on a raw angle bracket)."
+  ],
+  "touches": [
+    {
+      "exists": true,
+      "path": "pixie-sandbox-site/components/changelog/ChangelogEntry.tsx",
+      "reason": "Adds `breaking?: boolean` to the exported `ChangelogEntryData` type and renders the Breaking pill (with `Breaking change:` accessible text in DOM order before the title) when the flag is true."
+    },
+    {
+      "exists": true,
+      "path": "pixie-sandbox-site/app/changelog.xml/route.ts",
+      "reason": "Local `ChangelogEntry` type here duplicates `ChangelogEntryData` and does not import from the component. Adds `breaking?: boolean` to the local type and emits the `[Breaking] ` title prefix and `<category>breaking</category>` element inside each item whose entry is marked breaking."
+    },
+    {
+      "exists": true,
+      "path": "pixie-sandbox-site/data/changelog.json",
+      "reason": "Data source. Existing entries are not modified. Future entries may add `\"breaking\": true`; absence means false."
+    },
+    {
+      "exists": true,
+      "path": "pixie-sandbox-site/__tests__/changelog/ChangelogEntry.test.tsx",
+      "reason": "Existing test file for the component. Gains the acceptance-test cases covering AC1, AC2, AC3, AC12 (added as a new describe block or a new test file alongside \u2014 engineer's call on layout)."
+    },
+    {
+      "exists": true,
+      "path": "pixie-sandbox-site/__tests__/changelog-xml-route.test.ts",
+      "reason": "Existing test file for the RSS route. Gains the acceptance-test cases covering AC4, AC5, AC6."
+    },
+    {
+      "exists": true,
+      "path": "pixie-sandbox-site/__tests__/changelog-data.test.ts",
+      "reason": "Existing data-shape test. Does not currently reject unknown fields, so today it would not fail on a `breaking` addition. The engineer extends it to accept `breaking?: boolean` and reject non-boolean values where present."
+    },
+    {
+      "exists": true,
+      "path": "sandbox-changelog-api/src/server.ts",
+      "reason": "The API entry point per the repo's `package.json` (`node src/server.ts`). Adds `breaking` normalisation on every response entry (`false` when source omits it), adds `?breaking=true` filter, and 400s on any other value of the `breaking` query parameter. The exact file among `src/`'s three files that hosts `handle()` and its query parsing may be `server.ts` or a sibling \u2014 engineer picks (see deferred_decisions)."
+    },
+    {
+      "exists": true,
+      "path": "sandbox-changelog-api/data/changelog.json",
+      "reason": "The API's own copy of the shared data file. Existing entries are not modified; the shape gains an optional `breaking?: boolean` going forward."
+    }
+  ],
+  "user_stories": [
+    {
+      "criteria": [
+        "The marker is visually distinct from muted date/reading-time text",
+        "A screen reader announces `Breaking change:` before the title",
+        "Non-breaking entries look the same as they do today"
+      ],
+      "references": [],
+      "role": "changelog reader on the site",
+      "so_that": "I can see at a glance which changes need my attention",
+      "want": "a clear Breaking marker next to entries that require action"
+    },
+    {
+      "criteria": [
+        "The item title in the feed is prefixed with `[Breaking] ` for marked entries",
+        "The item carries a `<category>breaking</category>` element so category-aware readers can filter"
+      ],
+      "references": [],
+      "role": "RSS subscriber",
+      "so_that": "I notice them among cosmetic updates without having to open each one",
+      "want": "breaking entries flagged in my feed reader"
+    },
+    {
+      "criteria": [
+        "Every entry in every list response has `breaking: boolean`",
+        "`?breaking=true` returns only breaking entries",
+        "Any other value of the parameter is a 400"
+      ],
+      "references": [],
+      "role": "API consumer",
+      "so_that": "I can build downstream automation without inspecting description text",
+      "want": "a boolean flag on every entry and a query parameter to fetch only breaking entries"
+    }
+  ],
+  "users": [
+    {
+      "jobs_to_be_done": [
+        "Scan the changelog quickly and spot the entries that ask something of them",
+        "Understand at a glance whether an update needs their action or is purely cosmetic"
+      ],
+      "name": "Changelog reader (site visitor)",
+      "pain_points": [
+        "Today every entry looks the same \u2014 a breaking change reads exactly like a wording tweak",
+        "There is no visual or announced cue to help a screen-reader user distinguish the two"
+      ]
+    },
+    {
+      "jobs_to_be_done": [
+        "See new changelog entries in a feed reader with enough signal to triage",
+        "Filter or sort feed items by category if the reader supports it"
+      ],
+      "name": "RSS subscriber",
+      "pain_points": [
+        "Titles in the feed are indistinguishable \u2014 a breaking change can slip past unnoticed in a batch of updates"
+      ]
+    },
+    {
+      "jobs_to_be_done": [
+        "Fetch changelog entries programmatically and act on breaking ones (e.g. surface a banner, page a team, hold a deploy)",
+        "Retrieve only the breaking entries when that is all they need, without client-side filtering"
+      ],
+      "name": "API consumer (downstream service)",
+      "pain_points": [
+        "Today the API returns no signal about severity; consumers cannot tell breaking from cosmetic without parsing the description text"
+      ]
+    }
+  ],
+  "wireframes": [
+    {
+      "root": {
+        "children": [
+          {
+            "subtitle": "Recent changes to the sandbox site",
+            "text": "Changelog",
+            "type": "header"
+          },
+          {
+            "children": [
+              {
+                "subtitle": "09 Sep 2026 \u00b7 3 min read",
+                "text": "Breaking \u00b7 Widget renamed to gadget",
+                "type": "header"
+              },
+              {
+                "emphasis": "normal",
+                "text": "The widget resource has been renamed to gadget in the public API. Update any integrations that reference the old name.",
+                "type": "text"
+              }
+            ],
+            "title": null,
+            "type": "card"
+          },
+          {
+            "type": "divider"
+          },
+          {
+            "children": [
+              {
+                "subtitle": "01 Sep 2026 \u00b7 1 min read",
+                "text": "Copy tweak on the pricing table",
+                "type": "header"
+              },
+              {
+                "emphasis": "normal",
+                "text": "Refined the wording under the annual plan.",
+                "type": "text"
+              }
+            ],
+            "title": null,
+            "type": "card"
+          }
+        ],
+        "title": "/changelog",
+        "type": "screen",
+        "width": "default"
+      },
+      "title": "Changelog page \u2014 one breaking entry and one non-breaking entry"
+    }
+  ],
+  "wont": [
+    "The system shall not add a `breaking-only` filter control on the /changelog page \u2014 the site presents a marker per entry, not a filter.",
+    "The system shall not introduce a custom XML namespace for the RSS breaking marker \u2014 a plain `<category>` element is used.",
+    "The system shall not modify or backfill any of the four existing entries in either repository's `data/changelog.json`.",
+    "The system shall not add a `breaking` prefix to the RSS `<description>` \u2014 the marker appears only in `<title>` and `<category>`."
+  ]
+}

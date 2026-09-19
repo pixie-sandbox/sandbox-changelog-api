@@ -1,0 +1,23 @@
+{
+  "allowlist": [
+    "registry.npmjs.org"
+  ],
+  "description": "1 host(s) reachable: registry.npmjs.org. Enforced at the kernel: everything else fails to connect, including a raw socket. Always allowed: localhost, 127.0.0.1, ::1, api.anthropic.com, platform.claude.com.",
+  "destinations": {
+    "allowed": [
+      {
+        "attempts": 13,
+        "destination": "api.anthropic.com:443"
+      }
+    ],
+    "denied": [
+      {
+        "attempts": 7,
+        "destination": "http-intake.logs.us5.datadoghq.com:443"
+      }
+    ],
+    "truncated": false
+  },
+  "enforcement": "contained",
+  "filesystem": "contained"
+}

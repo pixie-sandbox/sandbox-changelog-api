@@ -1,0 +1,14 @@
+{
+  "name": "sandbox-changelog-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serves the sandbox site's changelog entries as JSON to other consumers.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test \"test/**/*.test.ts\""
+  }
+}

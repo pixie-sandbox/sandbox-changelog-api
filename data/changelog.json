@@ -1,0 +1,22 @@
+[
+  {
+    "title": "Custom 404 Page",
+    "description": "Added a custom 404 page that matches the site's design system, with support for both light and dark modes.",
+    "date": "2026-08-29T00:00:00.000Z"
+  },
+  {
+    "title": "Back-to-Top Control",
+    "description": "Added a back-to-top button that appears when the user scrolls down on long pages, providing a quick way to return to the top.",
+    "date": "2026-08-22T00:00:00.000Z"
+  },
+  {
+    "title": "Dark Mode Toggle",
+    "description": "Introduced a theme toggle in the site header allowing users to switch between light and dark modes, with the preference persisted in localStorage.",
+    "date": "2026-08-15T00:00:00.000Z"
+  },
+  {
+    "title": "Footer",
+    "description": "Added a site-wide footer displaying the current year and a link to the GitHub repository.",
+    "date": "2026-08-08T00:00:00.000Z"
+  }
+]

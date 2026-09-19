@@ -13,6 +13,8 @@ export type ChangelogEntry = {
   description: string;
   /** ISO 8601, UTC. */
   date: string;
+  /** True when this entry describes a breaking change. Absence means false. */
+  breaking?: boolean;
 };
 
 const DATA_URL = new URL("../data/changelog.json", import.meta.url);
@@ -24,14 +26,18 @@ export function loadEntries(): ChangelogEntry[] {
 export type EntryQuery = {
   /** Only entries dated in this calendar year (UTC). */
   year?: number;
+  /** When true, only return entries where breaking === true. */
+  breaking?: boolean;
 };
 
 /** Entries newest first, optionally narrowed by `query`. */
 export function listEntries(
   entries: ChangelogEntry[],
   query: EntryQuery = {},
-): ChangelogEntry[] {
+): (ChangelogEntry & { breaking: boolean })[] {
   return entries
     .filter((e) => query.year === undefined || new Date(e.date).getUTCFullYear() === query.year)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .filter((e) => query.breaking === undefined || (query.breaking === true && e.breaking === true))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((e) => ({ ...e, breaking: e.breaking === true }));
 }
